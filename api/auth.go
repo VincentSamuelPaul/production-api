@@ -22,6 +22,5 @@ func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) err
 	if err := s.store.CreateUser(&user); err != nil {
 		return err
 	}
-	fmt.Println(user.Password_hash)
 	return helpers.WriteJSON(w, http.StatusAccepted, user)
 }

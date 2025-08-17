@@ -26,12 +26,13 @@ func (server *APIServer) Run() {
 	// TEST
 	router.HandleFunc("/test", makeHTTPHandleFunc(server.handleTest))
 	// AUTH ROUTES
-	router.HandleFunc("/createuser", makeHTTPHandleFunc(server.handleCreateUser))
+	router.HandleFunc("/signup", makeHTTPHandleFunc(server.handleCreateUser))
 	// PRODUCT ROUTES
 	router.HandleFunc("/products", makeHTTPHandleFunc(server.handleGetAllProducts))
 	router.HandleFunc("/products/{id}", makeHTTPHandleFunc(server.handleGetProductByID))
 	// CART ROUTES
 	router.HandleFunc("/cart/{userid}", makeHTTPHandleFunc(server.handleCart))
+	router.HandleFunc("/cart/{userid}/{productid}", makeHTTPHandleFunc(server.handleCart))
 
 	log.Printf("API running on: %s\n", server.listenAddr)
 

@@ -121,9 +121,14 @@ func (s *PostgresStore) Init() error {
 // AUTH FUNCTIONS
 
 func (s *PostgresStore) CreateUser(user *structTypes.UserAccount) error {
-	query := `insert into users(username, email, password_hash, created_at) values($1, $2, $3, $4)`
-
-	_, err := s.DB.Exec(query, user.Username, user.Email, user.Password_hash, user.Created_at)
+	query := `insert into users(username, email, password_hash, created_at) values($1, $2, $3, $4) RETURNING id;`
+	var userId int
+	err := s.DB.QueryRow(query, user.Username, user.Email, user.Password_hash, user.Created_at).Scan(&userId)
+	if err != nil {
+		return err
+	}
+	query2 := `INSERT INTO carts (user_id) VALUES ($1) RETURNING id;`
+	_, err = s.DB.Exec(query2, userId)
 	if err != nil {
 		return err
 	}
@@ -228,4 +233,37 @@ func (s *PostgresStore) GetCartByID(id int) ([]structTypes.CartProduct, error) {
 		cartProducts = append(cartProducts, cartProduct)
 	}
 	return cartProducts, nil
+}
+
+func (s *PostgresStore) AddToCart(userID, productID, quantity int) error {
+	var cartID int
+	err := s.DB.QueryRow(`SELECT id FROM carts WHERE user_id = $1`, userID).Scan(&cartID)
+	if err != nil {
+		return fmt.Errorf("cart not found for user %d: %w", userID, err)
+	}
+	query := `
+		INSERT INTO cart_items (cart_id, product_id, quantity)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (cart_id, product_id)
+		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity;
+	`
+	_, err = s.DB.Exec(query, cartID, productID, quantity)
+	return err
+}
+
+func (s *PostgresStore) EmptyCart(userID int) error {
+	_, err := s.DB.Exec(`
+        DELETE FROM cart_items
+        WHERE cart_id = (SELECT id FROM carts WHERE user_id = $1)
+    `, userID)
+	return err
+}
+
+func (s *PostgresStore) DeleteFromCart(userID, productID int) error {
+	_, err := s.DB.Exec(`
+        DELETE FROM cart_items
+        WHERE cart_id = (SELECT id FROM carts WHERE user_id = $1)
+        AND product_id = $2
+    `, userID, productID)
+	return err
 }

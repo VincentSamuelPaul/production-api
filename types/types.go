@@ -16,6 +16,9 @@ type Storage interface {
 	GetAllProducts() ([]Product, error)
 	GetProductByID(int) (Product, error)
 	GetCartByID(int) ([]CartProduct, error)
+	AddToCart(int, int, int) error
+	EmptyCart(int) error
+	DeleteFromCart(int, int) error
 }
 
 type ErrorMSG struct {
