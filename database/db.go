@@ -267,3 +267,157 @@ func (s *PostgresStore) DeleteFromCart(userID, productID int) error {
     `, userID, productID)
 	return err
 }
+
+// ORDER FUNCTIONS
+
+func (s *PostgresStore) CreateOrder(userID int, orders []structTypes.OrderRequest) error {
+	insertQuery := `INSERT INTO orders (user_id, product_id, quantity, price)
+                    VALUES ($1, $2, $3, $4)`
+
+	updateQuery := `UPDATE products
+                    SET stock = stock - $1
+                    WHERE id = $2 AND stock >= $1`
+
+	getStockQuery := `SELECT stock FROM products WHERE id = $1`
+
+	for _, order := range orders {
+		var stock int
+		err := s.DB.QueryRow(getStockQuery, order.ProductID).Scan(&stock)
+		if err != nil {
+			return err
+		}
+
+		if stock <= 0 {
+			return fmt.Errorf("product_id %d is out of stock", order.ProductID)
+		}
+		if stock < order.Quantity {
+			return fmt.Errorf("not enough stock for product_id %d (available: %d, requested: %d)",
+				order.ProductID, stock, order.Quantity)
+		}
+
+		res, err := s.DB.Exec(updateQuery, order.Quantity, order.ProductID)
+		if err != nil {
+			return err
+		}
+		rowsAffected, _ := res.RowsAffected()
+		if rowsAffected == 0 {
+			return fmt.Errorf("not enough stock for product_id %d", order.ProductID)
+		}
+
+		_, err = s.DB.Exec(insertQuery, userID, order.ProductID, order.Quantity, order.Price)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *PostgresStore) GetAllOrdersByUserID(userID int) ([]structTypes.OrderResponse, error) {
+	var orders []structTypes.OrderResponse
+
+	query := `
+		SELECT 
+			o.id, o.user_id, o.product_id, 
+			p.name, p.description,
+			o.quantity, o.price, o.status, o.created_at
+		FROM orders o
+		JOIN products p ON o.product_id = p.id
+		WHERE o.user_id = $1
+	`
+	rows, err := s.DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var order structTypes.OrderResponse
+		if err := rows.Scan(
+			&order.ID,
+			&order.UserID,
+			&order.ProductID,
+			&order.ProductName,
+			&order.Description,
+			&order.Quantity,
+			&order.Price,
+			&order.Status,
+			&order.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		orders = append(orders, order)
+	}
+
+	return orders, nil
+}
+
+func (s *PostgresStore) GetOrderByID(orderID int) (structTypes.OrderResponse, error) {
+	var order structTypes.OrderResponse
+
+	query := `
+		SELECT 
+			o.id, o.user_id, o.product_id, 
+			p.name, p.description,
+			o.quantity, o.price, o.status, o.created_at
+		FROM orders o
+		JOIN products p ON o.product_id = p.id
+		WHERE o.id = $1
+	`
+	row := s.DB.QueryRow(query, orderID)
+
+	err := row.Scan(
+		&order.ID,
+		&order.UserID,
+		&order.ProductID,
+		&order.ProductName,
+		&order.Description,
+		&order.Quantity,
+		&order.Price,
+		&order.Status,
+		&order.CreatedAt,
+	)
+	if err != nil {
+		return order, err
+	}
+
+	return order, nil
+}
+
+func (s *PostgresStore) UpdateOrderStatus(orderID int, status string) error {
+	query := `
+		UPDATE orders
+		SET status = $1
+		WHERE id = $2
+	`
+	_, err := s.DB.Exec(query, status, orderID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *PostgresStore) DeleteOrder(orderID int) error {
+	// Step 1: get product_id and quantity of the order
+	var productID, quantity int
+	queryGet := `SELECT product_id, quantity FROM orders WHERE id = $1`
+	err := s.DB.QueryRow(queryGet, orderID).Scan(&productID, &quantity)
+	if err != nil {
+		return err
+	}
+
+	updateProductQuery := `UPDATE products SET stock = stock + $1 WHERE id = $2`
+	_, err = s.DB.Exec(updateProductQuery, quantity, productID)
+	if err != nil {
+		return err
+	}
+
+	deleteQuery := `DELETE FROM orders WHERE id = $1`
+	_, err = s.DB.Exec(deleteQuery, orderID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

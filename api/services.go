@@ -94,3 +94,66 @@ func (s *APIServer) handleCart(w http.ResponseWriter, r *http.Request) error {
 	}
 	return nil
 }
+
+// ORDER FUNCTIONS
+
+func (s *APIServer) handleOrders(w http.ResponseWriter, r *http.Request) error {
+
+	idStr := mux.Vars(r)["userid"]
+	userid, err := strconv.Atoi(idStr)
+	if err != nil {
+		return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: "Invalid userid type"})
+	}
+
+	status := mux.Vars(r)["status"]
+
+	if r.Method == "GET" {
+		data, err := s.store.GetAllOrdersByUserID(userid)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, data)
+	}
+
+	// if r.Method == "GET" && orderStr != "" && idStr == "" {
+	// 	orderid, err := strconv.Atoi(orderStr)
+	// 	if err != nil {
+	// 		return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: "Invalid orderid type"})
+	// 	}
+	// 	data, err := s.store.GetOrderByID(orderid)
+	// 	if err != nil {
+	// 		return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+	// 	}
+	// 	return helpers.WriteJSON(w, http.StatusOK, data)
+	// }
+
+	if r.Method == "POST" {
+		var orders []structTypes.OrderRequest
+		if err := json.NewDecoder(r.Body).Decode(&orders); err != nil {
+			return err
+		}
+		err := s.store.CreateOrder(userid, orders)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, map[string]string{"status": "orders placed"})
+	}
+
+	if r.Method == "PUT" {
+		err := s.store.UpdateOrderStatus(userid, status)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, map[string]string{"status": "orders status updated"})
+	}
+
+	if r.Method == "DELETE" {
+		err = s.store.DeleteOrder(userid)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, map[string]string{"status": "order deleted"})
+	}
+
+	return nil
+}
