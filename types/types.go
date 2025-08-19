@@ -24,6 +24,8 @@ type Storage interface {
 	CreateOrder(int, []OrderRequest) error
 	UpdateOrderStatus(int, string) error
 	DeleteOrder(int) error
+	CreateNewReview(ReviewRequest) error
+	GetAllReviewsByProductID(int) ([]ReviewResponse, error)
 }
 
 type ErrorMSG struct {
@@ -85,4 +87,20 @@ type OrderResponse struct {
 	Price       float64   `json:"price"`
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+type ReviewRequest struct {
+	UserID    int    `json:"user_id"`
+	ProductID int    `json:"product_id"`
+	Rating    int    `json:"rating"`
+	Comment   string `json:"comment"`
+}
+
+type ReviewResponse struct {
+	ID        int         `json:"id"`
+	Rating    int         `json:"rating"`
+	Comment   string      `json:"comment"`
+	CreatedAt time.Time   `json:"created_at"`
+	User      UserAccount `json:"user"`
+	Product   Product     `json:"product"`
 }

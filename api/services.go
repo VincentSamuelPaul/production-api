@@ -157,3 +157,32 @@ func (s *APIServer) handleOrders(w http.ResponseWriter, r *http.Request) error {
 
 	return nil
 }
+
+func (s *APIServer) handleReviews(w http.ResponseWriter, r *http.Request) error {
+	if r.Method == "POST" {
+		var review structTypes.ReviewRequest
+		if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
+			return err
+		}
+		err := s.store.CreateNewReview(review)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, map[string]string{"status": "review added"})
+	}
+
+	if r.Method == "GET" {
+		str := mux.Vars(r)["productid"]
+		prodcutID, err := strconv.Atoi(str)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: "Invalid productid type"})
+		}
+		data, err := s.store.GetAllReviewsByProductID(prodcutID)
+		if err != nil {
+			return helpers.WriteJSON(w, http.StatusBadRequest, structTypes.ErrorMSG{Error: err.Error()})
+		}
+		return helpers.WriteJSON(w, http.StatusOK, data)
+	}
+
+	return nil
+}

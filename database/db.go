@@ -121,7 +121,7 @@ func (s *PostgresStore) Init() error {
 // AUTH FUNCTIONS
 
 func (s *PostgresStore) CreateUser(user *structTypes.UserAccount) error {
-	query := `insert into users(username, email, password_hash, created_at) values($1, $2, $3, $4) RETURNING id;`
+	query := `INSERT INTO users(username, email, password_hash, created_at) VALUES($1, $2, $3, $4) RETURNING id;`
 	var userId int
 	err := s.DB.QueryRow(query, user.Username, user.Email, user.Password_hash, user.Created_at).Scan(&userId)
 	if err != nil {
@@ -272,13 +272,13 @@ func (s *PostgresStore) DeleteFromCart(userID, productID int) error {
 
 func (s *PostgresStore) CreateOrder(userID int, orders []structTypes.OrderRequest) error {
 	insertQuery := `INSERT INTO orders (user_id, product_id, quantity, price)
-                    VALUES ($1, $2, $3, $4)`
+                    VALUES ($1, $2, $3, $4);`
 
 	updateQuery := `UPDATE products
                     SET stock = stock - $1
-                    WHERE id = $2 AND stock >= $1`
+                    WHERE id = $2 AND stock >= $1;`
 
-	getStockQuery := `SELECT stock FROM products WHERE id = $1`
+	getStockQuery := `SELECT stock FROM products WHERE id = $1;`
 
 	for _, order := range orders {
 		var stock int
@@ -420,4 +420,71 @@ func (s *PostgresStore) DeleteOrder(orderID int) error {
 	}
 
 	return nil
+}
+
+// REVIEWS FUNCTIONS
+
+func (s *PostgresStore) CreateNewReview(review structTypes.ReviewRequest) error {
+	query := "insert into reviews (user_id, product_id, rating, comment) values ($1, $2, $3, $4);"
+	_, err := s.DB.Exec(query, review.UserID, review.ProductID, review.Rating, review.Comment)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetAllReviewsByProductID(productID int) ([]structTypes.ReviewResponse, error) {
+	var reviews []structTypes.ReviewResponse
+	query := `SELECT 
+			p.id AS product_id,
+			p.name AS product_name,
+			p.description AS product_description,
+			p.price,
+			p.stock,
+			p.created_at AS product_created_at,
+			
+			r.id AS review_id,
+			r.rating,
+			r.comment,
+			r.created_at AS review_created_at,
+			
+			u.id AS user_id,
+			u.username,
+			u.email
+		FROM products p
+		LEFT JOIN reviews r ON p.id = r.product_id
+		LEFT JOIN users u ON r.user_id = u.id
+		WHERE p.id = $1;
+		`
+	data, err := s.DB.Query(query, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer data.Close()
+	for data.Next() {
+		var review structTypes.ReviewResponse
+		err := data.Scan(
+			&review.Product.ID,
+			&review.Product.Name,
+			&review.Product.Description,
+			&review.Product.Price,
+			&review.Product.Stock,
+			&review.Product.Created_at,
+
+			&review.ID,
+			&review.Rating,
+			&review.Comment,
+			&review.CreatedAt,
+
+			&review.User.ID,
+			&review.User.Username,
+			&review.User.Email,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		reviews = append(reviews, review)
+	}
+	return reviews, nil
 }

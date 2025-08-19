@@ -38,8 +38,11 @@ func (server *APIServer) Run() {
 	// router.HandleFunc("/order/{orderid}", makeHTTPHandleFunc(server.handleOrders))
 	router.HandleFunc("/order/{userid}", makeHTTPHandleFunc(server.handleOrders))
 	router.HandleFunc("/order/{userid}/{status}", makeHTTPHandleFunc(server.handleOrders))
+	// REVIEW ROUTES
+	router.HandleFunc("/review", makeHTTPHandleFunc(server.handleReviews))
+	router.HandleFunc("/review/{productid}", makeHTTPHandleFunc(server.handleReviews))
 
-	log.Printf("API running on: %s\n", server.listenAddr)
+	log.Printf("\n\nEKIN shoes API running on: %s\n", server.listenAddr)
 
 	http.ListenAndServe(server.listenAddr, router)
 }
