@@ -26,7 +26,8 @@ func (server *APIServer) Run() {
 	// TEST
 	router.HandleFunc("/test", makeHTTPHandleFunc(server.handleTest))
 	// AUTH ROUTES
-	router.HandleFunc("/signup", makeHTTPHandleFunc(server.handleCreateUser))
+	router.HandleFunc("/auth/signin", makeHTTPHandleFunc(server.handleCreateUser))
+	router.HandleFunc("/auth/signup", makeHTTPHandleFunc(server.handleCreateUser))
 	// PRODUCT ROUTES
 	router.HandleFunc("/products", makeHTTPHandleFunc(server.handleGetAllProducts))
 	router.HandleFunc("/products/{id}", makeHTTPHandleFunc(server.handleGetProductByID))

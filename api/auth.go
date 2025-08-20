@@ -18,9 +18,13 @@ func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) err
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		return err
 	}
-	user.Created_at = time.Now()
-	if err := s.store.CreateUser(&user); err != nil {
+	account, err := helpers.NewAccount(user.Username, user.Email, user.Password_hash)
+	if err != nil {
 		return err
 	}
-	return helpers.WriteJSON(w, http.StatusAccepted, user)
+	account.Created_at = time.Now()
+	if err := s.store.CreateUser(account); err != nil {
+		return helpers.WriteJSON(w, http.StatusAccepted, structTypes.ErrorMSG{Error: err.Error()})
+	}
+	return helpers.WriteJSON(w, http.StatusAccepted, map[string]string{"status": "success"})
 }
